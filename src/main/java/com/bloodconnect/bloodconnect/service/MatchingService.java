@@ -2,8 +2,6 @@ package com.bloodconnect.bloodconnect.service;
 
 import com.bloodconnect.bloodconnect.model.Donor;
 import org.springframework.stereotype.Service;
-import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -34,9 +32,6 @@ public class MatchingService {
             Arrays.asList("O-"));
     }
 
-    private static final List<String> RARE_GROUPS =
-        Arrays.asList("AB-", "O-", "B-", "A-");
-
     public List<Map<String, Object>> findMatchingDonors(
             List<Donor> allDonors,
             String requestedBloodGroup,
@@ -47,10 +42,6 @@ public class MatchingService {
             COMPATIBLE_GROUPS.getOrDefault(
                 requestedBloodGroup, new ArrayList<>());
 
-        boolean isRare = RARE_GROUPS.contains(
-            requestedBloodGroup);
-        double maxDistanceKm = isRare ? 50.0 : 15.0;
-
         List<Map<String, Object>> matchedDonors =
             new ArrayList<>();
 
@@ -59,22 +50,15 @@ public class MatchingService {
                     donor.getBloodGroup())) continue;
             if (!Boolean.TRUE.equals(
                     donor.getAvailable())) continue;
-            if (donor.getLatitude() == null
-                    || donor.getLongitude() == null)
-                continue;
             if (!isEligible(donor)) continue;
-            if (!isAvailableNow(donor)) continue;
 
-            double distance = calculateDistance(
-                hospitalLat, hospitalLon,
-                donor.getLatitude(),
-                donor.getLongitude());
-
-            if (distance > maxDistanceKm) {
-                if (!Boolean.TRUE.equals(
-                        donor.getWillingToTravel()))
-                    continue;
-                if (distance > 50.0) continue;
+            double distance = 0.0;
+            if (donor.getLatitude() != null
+                    && donor.getLongitude() != null) {
+                distance = calculateDistance(
+                    hospitalLat, hospitalLon,
+                    donor.getLatitude(),
+                    donor.getLongitude());
             }
 
             Map<String, Object> donorMap =
@@ -97,9 +81,7 @@ public class MatchingService {
                 (Double) a.get("distanceKm"),
                 (Double) b.get("distanceKm")));
 
-        return matchedDonors.stream()
-            .limit(5)
-            .collect(Collectors.toList());
+        return matchedDonors;
     }
 
     public double calculateDistance(
@@ -131,29 +113,6 @@ public class MatchingService {
                     donor.getLastDonationDate(),
                     java.time.LocalDateTime.now());
             if (daysSince < 90) return false;
-        }
-        return true;
-    }
-
-    private boolean isAvailableNow(Donor donor) {
-        if (donor.getAvailableDays() == null
-                || donor.getAvailableDays().isEmpty())
-            return true;
-        String today = LocalDate.now()
-            .getDayOfWeek().name();
-        today = today.substring(0,1)
-            + today.substring(1).toLowerCase();
-        if (!donor.getAvailableDays().contains(today))
-            return false;
-        if (donor.getAvailableTimeStart() != null
-                && donor.getAvailableTimeEnd() != null) {
-            LocalTime now = LocalTime.now();
-            LocalTime start = LocalTime.parse(
-                donor.getAvailableTimeStart());
-            LocalTime end = LocalTime.parse(
-                donor.getAvailableTimeEnd());
-            return now.isAfter(start)
-                && now.isBefore(end);
         }
         return true;
     }
